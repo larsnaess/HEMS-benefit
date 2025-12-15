@@ -54,7 +54,6 @@ medical_colors <- c(
 ### Regression variables ----
 reg_vars_def  <- "ns(age,4) + year + season + weekpart + shift + gender"
 reg_vars_nmi  <- "ns(age,4) + year + season + weekpart + shift + gender + nmi"
-reg_vars_doc  <- "ns(age,4) + year + season + weekpart + shift + gender + nmi + doc"
 
 ### Analysis functions ----
 benefit_figA <- function(data, scenario_label, filter_expr) {
@@ -1455,67 +1454,9 @@ rm(fig_out_d30, fig_out_los, fig_out_drg)
 rm(labels_plot_out)
 rm(main_plots_out)
 
-### Figure 8: Regression: Benefit prediction - physician ----
-
-#Regression models
-reg_log_doc <- glm(as.formula(paste("qi_log ~", reg_vars_doc)), data = regdata_pred, family = "binomial")
-reg_med_doc <- glm(as.formula(paste("qi_med ~", reg_vars_doc)), data = regdata_pred, family = "binomial")
-reg_unc_doc  <- glm(as.formula(paste("qi_unc  ~", reg_vars_doc)), data = regdata_pred, family = "binomial")
-reg_models_doc <- list("Logistical benefit" = reg_log_doc, "Medical benefit" = reg_med_doc, "Uncertain benefit" = reg_unc_doc)
-
-pred_doc <- map_dfr(names(reg_models_doc), function(name) {
-  avg_predictions(reg_models_doc[[name]],
-                  type = "link",
-                  transform = plogis,
-                  by = "doc") %>%
-    mutate(outcome = name,
-           var = doc)
-})
-
-
-preds_doc <- pred_doc %>% 
-  select(var, outcome, estimate, conf.low, conf.high) %>%
-  mutate(outcome = factor(outcome, levels = c("Logistical benefit", "Medical benefit", "Uncertain benefit"))) %>% 
-  pivot_wider(names_from = outcome, values_from = c(estimate, conf.low, conf.high))
-
-
-figure8 <- ggdraw() +
-  draw_plot(
-    plot_grid(
-      ggplot(pred_doc, aes(x = estimate, y = fct_rev(var))) +
-        geom_point(aes(color = outcome)) +
-        geom_errorbar(aes(xmin = conf.low, xmax = conf.high, color = outcome),
-                      orientation = "y",
-                      width = 0.2,
-                      alpha = 1.0) +
-        facet_wrap(~ outcome, scales = "fixed") +
-        scale_color_manual(values = benefit_colors) +
-        labs(title = "Predicted Probabilities of benefit",
-             y = "Physician",
-             x = "Predicted probability"
-        ) +
-        theme_minimal() +
-        theme(
-          legend.position = "none",
-          plot.title = element_blank(),
-          axis.title.y = element_blank(),
-          axis.title.x = element_text(),
-          panel.spacing = unit(1.5, "lines")
-        ),
-      NULL,
-      ncol = 1,
-      rel_heights = c(1, 0.02)
-    ),
-    x = 0, y = 0, width = 1, height = 1
-  )
-
-plot(figure8)
-ggsave("./Figures/fig8_benefit prediction_doc.png", width = 3000, height = 2000, units = "px", dpi = 300, bg = "white")
-
 #Cleanup
 rm(regdata_pred)
-rm(reg_log_doc, reg_med_doc, reg_unc_doc, reg_models_doc, pred_doc)
-rm(reg_vars_def, reg_vars_doc, reg_vars_nmi)
+rm(reg_vars_def, reg_vars_nmi)
 
 ## Tables ----
 
@@ -2034,30 +1975,10 @@ write_xlsx(aT6c, "./Tables/Raw tables/@t6c_raw.xlsx")
 rm(pred_out_d30, pred_out_los, pred_out_drg)
 
 
-### aTable 7: Prediction estimates physician ----
-aT7 <- preds_doc %>% 
-  left_join(study_data %>%
-              count(var = hm_doc_label %>%
-                      factor() %>%
-                      fct_recode(
-                        "Physician a" = "doc_a",
-                        "Physician b" = "doc_b",
-                        "Physician c" = "doc_c",
-                        "Physician d" = "doc_d",
-                        "Physician e" = "doc_e",
-                        "Physician f" = "doc_f",
-                        "Physician g" = "doc_g",
-                        "Physician h" = "doc_h")
-              ), 
-            by = "var") %>%
-  select(var, n, everything())
-  
-write_xlsx(aT7, "./Tables/Raw tables/@t7_raw.xlsx")
-rm(preds_doc)   #Cleanup
-
 #Cleanup
 rm(aT0_overall)
 rm(benefit_colors, logistic_colors, medical_colors)
 rm(benefit_figA, benefit_figB)
+
 
 
