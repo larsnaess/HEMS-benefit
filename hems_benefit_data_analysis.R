@@ -2,7 +2,7 @@
 # title: "HEMS Benefit Data analysis"
 # author: "Lars Eide Næss"
 # contact: "lars.eide.ness@stolav.no"
-# revision date: 2025-12-11
+# revision date: 2025-12-15
 
 # Preparation ----
 ## Setup ----
@@ -12,7 +12,7 @@ rm(list = ls())
 Sys.setlocale("LC_ALL", "no_NO.UTF-8")
 Sys.setenv(TZ = "UTC")
 
-setwd("C:/YOUR_DIRECTORY")
+setwd("...C:/YOUR_DIRECTORY...")
 
 # Loading in libraries -
 library(tidyverse)
@@ -26,8 +26,9 @@ library(grid)
 library(cowplot)
 
 ## Data import ----
-load(file = "./Data/hb_data.RData")
-study_data <- hb_data %>% filter(eligible == 1)
+load(file = "./data.RData")
+study_data <- data %>% filter(eligible == 1)
+
 
 ## Analysis configuration ---- 
 
@@ -52,8 +53,8 @@ medical_colors <- c(
   )
 
 ### Regression variables ----
-reg_vars_def  <- "ns(age,4) + year + season + weekpart + shift + gender"
-reg_vars_nmi  <- "ns(age,4) + year + season + weekpart + shift + gender + nmi"
+reg_vars_def  <- "ns(age,4) + year + season + weekpart + shift + gender + doc"
+reg_vars_nmi  <- "ns(age,4) + year + season + weekpart + shift + gender + doc + nmi"
 
 ### Analysis functions ----
 benefit_figA <- function(data, scenario_label, filter_expr) {
@@ -1448,15 +1449,13 @@ plot(figure7)
 ggsave("./Figures/fig7_outcome prediction.png", width = 3000, height = 2000, units = "px", dpi = 300, bg = "white")
 
 #Cleanup
-rm(regdata_out)
+rm(reg_vars_def, reg_vars_nmi)
+rm(regdata_pred, regdata_out)
 rm(reg_out_d30, reg_out_los, reg_out_drg)
 rm(fig_out_d30, fig_out_los, fig_out_drg)
 rm(labels_plot_out)
 rm(main_plots_out)
 
-#Cleanup
-rm(regdata_pred)
-rm(reg_vars_def, reg_vars_nmi)
 
 ## Tables ----
 
@@ -1796,6 +1795,7 @@ rm(benefit_log, benefit_med)
 aT0_overall <- study_data %>% 
   summarise(n_log = sum(qi_logistical_benefit == "Yes", na.rm = TRUE),
             n_med = sum(qi_medical_benefit == "Yes", na.rm = TRUE),
+            n_int = sum(qi_logistical_benefit == "Yes" & qi_medical_benefit == "Yes", na.rm = TRUE),
             n_unc = sum(
               (qi_logistical_benefit != "Yes" | is.na(qi_logistical_benefit)) &
                 (qi_medical_benefit    != "Yes" | is.na(qi_medical_benefit)) &
@@ -1827,12 +1827,102 @@ aT1 <- data.frame(
 write_xlsx(aT1, "./Tables/Raw tables/@t1_raw.xlsx")
 
 
-### aTable 2: HEMS diagnosis ----
-aT2 <- bind_rows(aT0_overall,
+
+### aTable 2: Benefit associations ----
+aT2a <- study_data %>%
+  group_by(hm_type_cat) %>% 
+  mutate(hm_type_cat = case_when(hm_type_cat == "SAR" ~ "SAR / Other",
+                                 hm_type_cat == "Other" ~ "SAR / Other",
+                                 TRUE ~ hm_type_cat)) %>% 
+                   summarise(n_log = sum(qi_logistical_benefit == "Yes", na.rm = TRUE),
+                             n_med = sum(qi_medical_benefit == "Yes", na.rm = TRUE),
+                             n_int = sum(qi_logistical_benefit == "Yes" & qi_medical_benefit == "Yes", na.rm = TRUE),
+                             n_unc = sum(
+                               (qi_logistical_benefit != "Yes" | is.na(qi_logistical_benefit)) &
+                                 (qi_medical_benefit    != "Yes" | is.na(qi_medical_benefit)) &
+                                 (qi_logistical_benefit == "No" | qi_medical_benefit == "No") &
+                                 !(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit)),
+                               na.rm = TRUE
+                             ),
+                             n_na = sum(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit), na.rm = TRUE),
+                             total = n()) %>% 
+                   mutate(category = as.character(hm_type_cat)) %>% 
+                   select(-hm_type_cat) %>% 
+                   arrange(is.na(category), desc(total))
+
+
+aT2b <- study_data %>%
+  group_by(hm_vessel) %>% 
+  summarise(n_log = sum(qi_logistical_benefit == "Yes", na.rm = TRUE),
+            n_med = sum(qi_medical_benefit == "Yes", na.rm = TRUE),
+            n_int = sum(qi_logistical_benefit == "Yes" & qi_medical_benefit == "Yes", na.rm = TRUE),
+            n_unc = sum(
+              (qi_logistical_benefit != "Yes" | is.na(qi_logistical_benefit)) &
+                (qi_medical_benefit    != "Yes" | is.na(qi_medical_benefit)) &
+                (qi_logistical_benefit == "No" | qi_medical_benefit == "No") &
+                !(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit)),
+              na.rm = TRUE
+            ),
+            n_na = sum(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit), na.rm = TRUE),
+            total = n()) %>% 
+  mutate(category = as.character(hm_vessel)) %>% 
+  select(-hm_vessel) %>% 
+  arrange(is.na(category), desc(total))
+
+
+aT2c <- study_data %>%
+  group_by(hp_naca_gr) %>% 
+  summarise(n_log = sum(qi_logistical_benefit == "Yes", na.rm = TRUE),
+            n_med = sum(qi_medical_benefit == "Yes", na.rm = TRUE),
+            n_int = sum(qi_logistical_benefit == "Yes" & qi_medical_benefit == "Yes", na.rm = TRUE),
+            n_unc = sum(
+              (qi_logistical_benefit != "Yes" | is.na(qi_logistical_benefit)) &
+                (qi_medical_benefit    != "Yes" | is.na(qi_medical_benefit)) &
+                (qi_logistical_benefit == "No" | qi_medical_benefit == "No") &
+                !(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit)),
+              na.rm = TRUE
+            ),
+            n_na = sum(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit), na.rm = TRUE),
+            total = n()) %>% 
+  mutate(category = as.character(hp_naca_gr)) %>% 
+  select(-hp_naca_gr)
+
+aT2d <- study_data %>%
+  mutate(proc = case_when(hp_proc_sum == 0 ~ "0 proc",
+                           hp_proc_sum == 1 ~ "1 proc",
+                           hp_proc_sum == 2 ~ "2 proc",
+                           hp_proc_sum == 3 | hp_proc_sum == 4 ~ "3-4 proc",
+                           hp_proc_sum >= 5 ~ "5+ proc"
+                           )
+         ) %>% 
+  group_by(proc) %>% 
+  summarise(n_log = sum(qi_logistical_benefit == "Yes", na.rm = TRUE),
+            n_med = sum(qi_medical_benefit == "Yes", na.rm = TRUE),
+            n_int = sum(qi_logistical_benefit == "Yes" & qi_medical_benefit == "Yes", na.rm = TRUE),
+            n_unc = sum(
+              (qi_logistical_benefit != "Yes" | is.na(qi_logistical_benefit)) &
+                (qi_medical_benefit    != "Yes" | is.na(qi_medical_benefit)) &
+                (qi_logistical_benefit == "No" | qi_medical_benefit == "No") &
+                !(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit)),
+              na.rm = TRUE
+            ),
+            n_na = sum(is.na(qi_logistical_benefit) & is.na(qi_medical_benefit), na.rm = TRUE),
+            total = n()) %>% 
+  mutate(category = as.character(proc)) %>% 
+  select(-proc)
+
+aT2 <- bind_rows(aT0_overall, aT2a, aT2b, aT2c, aT2d) %>% 
+  select(category, everything())
+write_xlsx(aT2, "./Tables/Raw tables/@t2_raw.xlsx")
+rm(aT2a, aT2b, aT2c, aT2d)
+
+### aTable 3: HEMS diagnosis ----
+aT3 <- bind_rows(aT0_overall,
                  study_data %>%
                    group_by(hp_dia_3) %>% 
                    summarise(n_log = sum(qi_logistical_benefit == "Yes", na.rm = TRUE),
                              n_med = sum(qi_medical_benefit == "Yes", na.rm = TRUE),
+                             n_int = sum(qi_logistical_benefit == "Yes" & qi_medical_benefit == "Yes", na.rm = TRUE),
                              n_unc = sum(
                                (qi_logistical_benefit != "Yes" | is.na(qi_logistical_benefit)) &
                                  (qi_medical_benefit    != "Yes" | is.na(qi_medical_benefit)) &
@@ -1847,21 +1937,21 @@ aT2 <- bind_rows(aT0_overall,
                    arrange(is.na(category), desc(total))) %>% 
   select(category, everything())
 
-write_xlsx(aT2, "./Tables/Raw tables/@t2_raw.xlsx")
+write_xlsx(aT3, "./Tables/Raw tables/@t3_raw.xlsx")
 
 
-### aTable 3: Prediction estimates age ----
-aT3 <- preds_age %>%
+### aTable 4: Prediction estimates age ----
+aT4 <- preds_age %>%
   left_join((study_data %>% count(age = hp_age)),
             by = "age") %>%
   select(age, n, everything())
 
-write_xlsx(aT3, "./Tables/Raw tables/@t3_raw.xlsx")
+write_xlsx(aT4, "./Tables/Raw tables/@t4_raw.xlsx")
 rm(preds_age)   #Cleanup
 
 
-### aTable 4: Prediction estimates descriptives ----
-aT4 <- preds_desc %>%
+### aTable 5: Prediction estimates descriptives ----
+aT5 <- preds_desc %>%
   left_join(
     (bind_rows(
     study_data %>% count(var = alarm_year,  name = "n") %>% mutate(var = as.character(var)),
@@ -1874,12 +1964,12 @@ aT4 <- preds_desc %>%
     by = "var") %>%
   select(var, n, everything())
 
-write_xlsx(aT4, "./Tables/Raw tables/@t4_raw.xlsx")
+write_xlsx(aT5, "./Tables/Raw tables/@t5_raw.xlsx")
 rm(preds_desc)    #Cleanup
 
 
-### aTable 5: Prediction estimates NMI ----
-aT5 <- preds_nmi %>% 
+### aTable 6: Prediction estimates NMI ----
+aT6 <- preds_nmi %>% 
   left_join(study_data %>%
               count(var = emcc_nmi_grp_agg %>%
                       factor() %>%
@@ -1895,14 +1985,14 @@ aT5 <- preds_nmi %>%
   arrange(desc(row_number()))
 
 
-write_xlsx(aT5, "./Tables/Raw tables/@t5_raw.xlsx")
+write_xlsx(aT6, "./Tables/Raw tables/@t6_raw.xlsx")
 rm(preds_nmi)   #Cleanup
 
 
-### aTable 6: Prediction estimates outcome ----
+### aTable 7: Prediction estimates outcome ----
 
 #30-day mortality
-aT6a <- study_data %>%
+aT7a <- study_data %>%
   filter(!is.na(qi_logistical_benefit) | !is.na(qi_medical_benefit)) %>%
   filter(!is.na(pat_pas_first) & hp_naca != 7) %>%
   mutate(
@@ -1922,11 +2012,11 @@ aT6a <- study_data %>%
   ) %>% 
   left_join(pred_out_d30, by = "outcome")
   
-write_xlsx(aT6a, "./Tables/Raw tables/@t6a_raw.xlsx")
+write_xlsx(aT7a, "./Tables/Raw tables/@t7a_raw.xlsx")
 
 
 #Hospital days
-aT6b <- study_data %>%
+aT7b <- study_data %>%
   filter(!is.na(qi_logistical_benefit) | !is.na(qi_medical_benefit)) %>%
   filter(!is.na(he_in)) %>%
   mutate(
@@ -1946,12 +2036,11 @@ aT6b <- study_data %>%
   ) %>% 
   left_join(pred_out_los, by = "outcome")
 
-write_xlsx(aT6b, "./Tables/Raw tables/@t6b_raw.xlsx")
+write_xlsx(aT7b, "./Tables/Raw tables/@t7b_raw.xlsx")
 
 
 #DRG Points
-#Hospital days
-aT6c <- study_data %>%
+aT7c <- study_data %>%
   filter(!is.na(qi_logistical_benefit) | !is.na(qi_medical_benefit)) %>%
   filter(!is.na(he_in)) %>%
   mutate(
@@ -1971,7 +2060,7 @@ aT6c <- study_data %>%
   ) %>% 
   left_join(pred_out_drg, by = "outcome")
 
-write_xlsx(aT6c, "./Tables/Raw tables/@t6c_raw.xlsx")
+write_xlsx(aT7c, "./Tables/Raw tables/@t7c_raw.xlsx")
 rm(pred_out_d30, pred_out_los, pred_out_drg)
 
 
@@ -1979,6 +2068,7 @@ rm(pred_out_d30, pred_out_los, pred_out_drg)
 rm(aT0_overall)
 rm(benefit_colors, logistic_colors, medical_colors)
 rm(benefit_figA, benefit_figB)
+
 
 
 
