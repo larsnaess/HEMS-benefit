@@ -29,7 +29,6 @@ SELECT
     , CAST(dl.[indeks] AS int)                                          AS dl_index
     , dl.[varslet]                                                      AS dl_alarm
     , dl.[VaktID]                                                       AS dl_resource
-    -- , dl.[ressurs_navn1]                                                AS dl_doctor         -- Sensitive info!
     , dl.[kommunenavn]                                                  AS dl_municipality
     , dl.[kode_navn]                                                    AS dl_incident_type
     , ROW_NUMBER() OVER (
@@ -539,7 +538,6 @@ CREATE NONCLUSTERED INDEX IX_hs_pid ON #hs(hs_pid);
 ------------------------------------------------------------
 SELECT
     reg.AmisId AS qi_incident
-  -- , CONCAT(doc.Firstname, ' ', doc.Lastname) AS qi_doc				-- Sensitive info!
   -- , reg.PatientId AS qi_patient										-- Possible multiple patients per incident
   -- , reg.Gender AS qi_gender											-- Usable for hp matching, but too general for accurate linkage; redundant since sex and age are available elsewhere
   -- , FLOOR(reg.Age / 12.0) AS qi_age									-- Usable for hp matching, but too general for accurate linkage; redundant since sex and age are available elsewhere
@@ -797,3 +795,4 @@ DROP TABLE IF EXISTS #hp;
 DROP TABLE IF EXISTS #docs;
 DROP TABLE IF EXISTS #hm;
 DROP TABLE IF EXISTS #dl;
+
