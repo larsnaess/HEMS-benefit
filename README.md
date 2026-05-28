@@ -1,7 +1,7 @@
 This repository contains code for assembling and analysing data for the project:
 *"Assessment of clinical and logistical contribution in a Norwegian helicopter emergency medical service using integrated data: A retrospective observational study"*
 
-Published work can be found here: [https://doi.org/10.1186/s13049-026-01615-3]
+Published work can be found here: https://doi.org/10.1186/s13049-026-01615-3
 
 The repository consists of:
 1) SQL code for compiling a dataset from multiple sources using the Central Norway Regional Health Authority data warehouse ("HMNDatavarehus")
